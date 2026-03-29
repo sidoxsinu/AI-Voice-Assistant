@@ -1,0 +1,17 @@
+{
+  "name": "voice-first-task-assistant",
+  "version": "1.0.0",
+  "description": "Voice-First Task Assistant",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "@google/generative-ai": "^0.21.0",
+    "googleapis": "^140.0.0",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
+    "nodemailer": "^6.9.12"
+  }
+}

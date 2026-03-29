@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice-First Task Assistant</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: rgba(30, 41, 59, 0.25);
+      --border: rgba(255, 255, 255, 0.15);
+      --text: #f8fafc;
+      --primary: #3b82f6;
+      --red: #ef4444;
+      --gray: #64748b;
+      --success: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: linear-gradient(rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.7)), url('images/pexels-caleb-falkenhagen-216813613-35362080.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+    }
+
+    /* Glassmorphism utility */
+    .glass {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .container {
+      width: 100%;
+      max-width: 600px;
+      padding: 2rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+      animation: float 6s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+      100% { transform: translateY(0px); }
+    }
+
+    /* Mic Button */
+    .mic-button {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: none;
+      background: var(--gray);
+      color: white;
+      font-size: 3rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    .mic-button:hover {
+      transform: scale(1.05);
+    }
+
+    .mic-button:active {
+      transform: scale(0.95);
+    }
+
+    .mic-button.recording {
+      background: var(--red);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+      }
+
+      70% {
+        box-shadow: 0 0 0 25px rgba(239, 68, 68, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+      }
+    }
+
+    /* Status Text */
+    .status-text {
+      font-size: 1.25rem;
+      font-weight: 500;
+      color: var(--primary);
+      min-height: 1.5rem;
+    }
+
+    /* Transcript Card */
+    .transcript-box {
+      width: 100%;
+      padding: 1.5rem;
+      min-height: 100px;
+      text-align: left;
+      font-size: 1.1rem;
+      line-height: 1.5;
+      color: #cbd5e1;
+    }
+
+    /* Email Preview */
+    .email-preview {
+      width: 100%;
+      padding: 1.5rem;
+      text-align: left;
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .preview-row {
+      margin-bottom: 1rem;
+    }
+
+    .preview-label {
+      font-size: 0.85rem;
+      color: var(--gray);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 0.25rem;
+      font-weight: 600;
+    }
+
+    .preview-value {
+      font-size: 1.1rem;
+    }
+
+    .preview-body {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 0.5rem;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    /* Actions */
+    .actions {
+      display: flex;
+      gap: 1rem;
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 1rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .btn.confirm {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn.cancel {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: white;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      padding: 1rem 2rem;
+      border-radius: 30px;
+      background: var(--success);
+      color: white;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      z-index: 1000;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .toast.error {
+      background: var(--red);
+    }
+
+    /* Summary Card */
+    .summary-card {
+      display: none;
+      margin-top: 1rem;
+    }
+    
+    /* Todo Panel */
+    .todo-panel {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      width: 300px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 1.5rem;
+      animation: float 7s ease-in-out infinite;
+    }
+    .todo-panel h3 { margin-top: 0; margin-bottom: 1rem; font-size: 1.1rem; }
+    .todo-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      font-size: 0.9rem;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+  <div class="todo-panel glass" id="todoPanel">
+    <h3>To-Do List</h3>
+    <div id="todoList"></div>
+    <button class="btn" id="clearTodoBtn" style="margin-top: 10px; width: 100%; border: 1px solid rgba(255,255,255,0.2); background: transparent; padding: 0.5rem; font-size: 0.85rem;">Refresh / Clear All</button>
+  </div>
+
+  <div class="container">
+    <button class="mic-button" id="micBtn" title="Click to start">🎙️</button>
+    <div class="status-text" id="statusText">Ready</div>
+
+    <div class="glass transcript-box" id="transcriptBox">
+      <span class="placeholder">Your voice command will appear here...</span>
+    </div>
+
+    <!-- Email Card -->
+    <div class="glass email-preview" id="emailPreview">
+      <div class="preview-row">
+        <div class="preview-label">To</div>
+        <div class="preview-value" id="previewTo" contenteditable="true" style="padding: 2px 4px; border-bottom: 1px dashed rgba(255,255,255,0.4); outline: none;">-</div>
+      </div>
+      <div class="preview-row">
+        <div class="preview-label">Subject</div>
+        <div class="preview-value" id="previewSubject" contenteditable="true" style="padding: 2px 4px; border-bottom: 1px dashed rgba(255,255,255,0.4); outline: none;">-</div>
+      </div>
+      <div class="preview-row">
+        <div class="preview-label">Body</div>
+        <div class="preview-body" id="previewBody" contenteditable="true" style="border: 1px dashed rgba(255,255,255,0.4); outline: none;">-</div>
+      </div>
+
+      <div class="actions">
+        <button class="btn cancel" id="cancelBtn">Cancel</button>
+        <button class="btn confirm" id="confirmBtn">Send Email</button>
+      </div>
+    </div>
+
+    <!-- Summary Card -->
+    <div class="glass summary-card" id="summaryCard">
+      <div class="preview-row">
+        <div class="preview-label">Clipboard Summary</div>
+        <div class="preview-body" id="summaryBody">-</div>
+      </div>
+      <div class="actions">
+        <button class="btn cancel" id="summaryCancelBtn">Close</button>
+        <button class="btn confirm" id="summaryCopyBtn">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Notification</div>
+
+  <audio id="ttsAudio"></audio>
+
+  <script>
+    const micBtn = document.getElementById('micBtn');
+    const statusText = document.getElementById('statusText');
+    const transcriptBox = document.getElementById('transcriptBox');
+    const emailPreview = document.getElementById('emailPreview');
+    const previewTo = document.getElementById('previewTo');
+    const previewSubject = document.getElementById('previewSubject');
+    const previewBody = document.getElementById('previewBody');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const confirmBtn = document.getElementById('confirmBtn');
+    const toast = document.getElementById('toast');
+    const ttsAudio = document.getElementById('ttsAudio');
+
+    const summaryCard = document.getElementById('summaryCard');
+    const summaryBody = document.getElementById('summaryBody');
+    const summaryCancelBtn = document.getElementById('summaryCancelBtn');
+    const summaryCopyBtn = document.getElementById('summaryCopyBtn');
+    
+    const todoList = document.getElementById('todoList');
+    const clearTodoBtn = document.getElementById('clearTodoBtn');
+
+
+    let isRecording = false;
+    let mediaRecorder;
+    let deepgramSocket;
+    let currentTranscript = "";
+    let finalTranscript = "";
+
+    let emailData = null; // Store parsed email data
+
+    async function initDeepgram() {
+      // Fetch key from backend
+      const res = await fetch('/api/env');
+      const data = await res.json();
+      const apiKey = data.deepgramKey;
+
+      if (!apiKey) {
+        showToast("Missing Deepgram Key", true);
+        return;
+      }
+
+      // Initialize WebSocket
+      deepgramSocket = new WebSocket('wss://api.deepgram.com/v1/listen?model=nova-2&punctuate=true&interim_results=true&endpointing=1500', [
+        'token', apiKey
+      ]);
+
+      deepgramSocket.onopen = () => {
+        statusText.innerText = "Listening...";
+        micBtn.classList.add('recording');
+        isRecording = true;
+        currentTranscript = "";
+        finalTranscript = "";
+        transcriptBox.innerHTML = "";
+        emailPreview.style.display = 'none';
+
+        startMicrophone();
+      };
+
+      deepgramSocket.onmessage = (message) => {
+        try {
+          const received = JSON.parse(message.data);
+
+          if (received.channel && received.channel.alternatives && received.channel.alternatives[0]) {
+            const transcriptChunk = received.channel.alternatives[0].transcript;
+
+            if (transcriptChunk && received.is_final) {
+              finalTranscript += transcriptChunk + " ";
+              transcriptBox.innerHTML = finalTranscript;
+
+              if (received.speech_final) {
+                // Endpointing triggered via 1.5s silence
+                stopRecordingAndParse();
+              }
+            } else if (transcriptChunk) {
+              transcriptBox.innerHTML = finalTranscript + '<span style="opacity: 0.5">' + transcriptChunk + '</span>';
+            }
+          }
+        } catch (e) {
+          console.error("Error parsing Deepgram message:", e);
+        }
+      };
+
+      deepgramSocket.onclose = () => {
+        stopMicrophone(); // Ensure mic stops when socket closes
+      };
+
+      deepgramSocket.onerror = (error) => {
+        console.error("Deepgram WebSocket Error", error);
+        showToast("Microphone error", true);
+        resetUI();
+      };
+    }
+
+    async function startMicrophone() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.addEventListener('dataavailable', event => {
+          if (event.data.size > 0 && deepgramSocket.readyState == 1) {
+            deepgramSocket.send(event.data);
+          }
+        });
+
+        mediaRecorder.start(250);
+      } catch (err) {
+        console.error("Microphone access denied", err);
+        showToast("Please enable microphone permissions.", true);
+        resetUI();
+      }
+    }
+
+    function stopMicrophone() {
+      micBtn.classList.remove('recording');
+      isRecording = false;
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(t => t.stop());
+      }
+    }
+
+    async function stopRecordingAndParse() {
+      stopMicrophone();
+      // Close socket to deepgram
+      if (deepgramSocket && deepgramSocket.readyState === WebSocket.OPEN) {
+        deepgramSocket.send(JSON.stringify({ type: 'CloseStream' }));
+      }
+
+      if (!finalTranscript.trim()) {
+        resetUI();
+        speakText("Sorry, I didn't catch that. Please try again.");
+        return;
+      }
+
+      const t = finalTranscript.toLowerCase();
+
+      if (t.includes('summari') || t.includes('copied')) {
+        statusText.innerText = "Tap anywhere to read clipboard...";
+        speakText("Please tap anywhere on the screen to allow me to read your clipboard.");
+        
+        const pasteHandler = async () => {
+          document.removeEventListener('click', pasteHandler);
+          try {
+            statusText.innerText = "Summarizing...";
+            const clipText = await navigator.clipboard.readText();
+            if (!clipText) { 
+              speakText("Your clipboard is empty."); 
+              resetUI(); 
+              return; 
+            }
+            const res = await fetch('/api/summarize', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: clipText })
+            });
+            const data = await res.json();
+            summaryBody.innerText = data.summary;
+            summaryCard.style.display = 'block';
+            speakText(data.summary);
+            statusText.innerText = "Done!";
+          } catch (e) {
+            console.error(e);
+            showToast("Clipboard reading blocked or API error", true);
+            speakText("I couldn't read your clipboard. Make sure you grant permissions.");
+            resetUI();
+          }
+        };
+
+        // Delay slight to prevent triggering off of any native bubbling clicks
+        setTimeout(() => {
+          document.addEventListener('click', pasteHandler);
+        }, 500);
+        
+        return;
+      }
+
+      if (t.includes('add') || t.includes('remind me')) {
+        statusText.innerText = "Extracting task...";
+        try {
+          const res = await fetch('/api/add-todo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transcript: finalTranscript })
+          });
+          const data = await res.json();
+          updateTodoPanel(data.allTasks);
+          speakText(`Added to your list: ${data.task}`);
+          statusText.innerText = "Added!";
+        } catch (e) {
+          console.error(e);
+          showToast("Failed to add task", true);
+          resetUI();
+        }
+        return;
+      }
+
+      statusText.innerText = "Thinking...";
+
+      try {
+        const response = await fetch('/api/parse-command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transcript: finalTranscript.trim() })
+        });
+
+        if (!response.ok) throw new Error("Parse failed");
+
+        emailData = await response.json();
+
+        if (emailData.action === 'reply') {
+          statusText.innerText = "Responded";
+          transcriptBox.innerHTML = `<strong>Assistant:</strong> ${emailData.text}`;
+          speakText(emailData.text);
+        } else if (emailData.action === 'send_email') {
+          // Populate preview card
+          previewTo.innerText = emailData.to;
+          previewSubject.innerText = emailData.subject;
+          previewBody.innerHTML = emailData.body.replace(/\n/g, '<br>');
+
+          statusText.innerText = "Preview ready";
+          emailPreview.style.display = 'block';
+          speakText("I drafted the email. Please review and confirm to send.");
+        }
+
+      } catch (error) {
+        speakText("Sorry, I couldn't understand that. Please try again.");
+        resetUI();
+      }
+    }
+
+    micBtn.addEventListener('click', () => {
+      // unlock audio element on first interaction
+      ttsAudio.play().catch(() => {});
+      
+      if (!isRecording) {
+        initDeepgram();
+      } else {
+        stopRecordingAndParse();
+      }
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      resetUI();
+      finalTranscript = "";
+      transcriptBox.innerHTML = '<span class="placeholder">Your voice command will appear here...</span>';
+    });
+
+    summaryCancelBtn.addEventListener('click', () => {
+      resetUI();
+    });
+
+    summaryCopyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(summaryBody.innerText);
+        showToast("Summary copied!");
+      } catch (e) {
+        showToast("Failed to copy", true);
+      }
+    });
+
+    confirmBtn.addEventListener('click', async () => {
+      // unlock audio element on first interaction
+      ttsAudio.play().catch(() => {});
+
+      const payload = {
+        to: previewTo.innerText.trim(),
+        subject: previewSubject.innerText.trim(),
+        body: previewBody.innerText.trim()
+      };
+
+      if (!payload.to) {
+        showToast("Recipient is required", true);
+        return;
+      }
+
+      statusText.innerText = "Sending...";
+      confirmBtn.disabled = true;
+      confirmBtn.style.opacity = "0.5";
+
+      try {
+        const response = await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error("Send failed");
+
+        showToast("Email sent!");
+        speakText("Done! Your email has been sent successfully.");
+        resetUI();
+        transcriptBox.innerHTML = '<span class="placeholder">Your voice command will appear here...</span>';
+
+      } catch (error) {
+        console.error(error);
+        showToast("Failed to send email", true);
+        statusText.innerText = "Error sending email";
+      } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.style.opacity = "1";
+      }
+    });
+
+    function resetUI() {
+      stopMicrophone();
+      statusText.innerText = "Ready";
+      emailPreview.style.display = 'none';
+      summaryCard.style.display = 'none';
+      emailData = null;
+    }
+
+    clearTodoBtn.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/todos', { method: 'DELETE' });
+        const data = await res.json();
+        updateTodoPanel(data.tasks);
+        showToast("To-Do list cleared!");
+      } catch (e) {
+        console.error(e);
+        showToast("Failed to clear list", true);
+      }
+    });
+    
+    async function loadTodos() {
+      try {
+        const res = await fetch('/api/todos');
+        const data = await res.json();
+        updateTodoPanel(data.tasks);
+      } catch(e) { console.error(e); }
+    }
+    
+    function updateTodoPanel(tasks) {
+      todoList.innerHTML = tasks.length === 0 ? '<p style="opacity:0.5; font-size: 0.9rem;">List is empty</p>' : '';
+      tasks.forEach(t => {
+        const div = document.createElement('div');
+        div.className = 'todo-item';
+        div.innerHTML = `<input type="checkbox"> <span>${t}</span>`;
+        todoList.appendChild(div);
+      });
+    }
+
+    // Call loadTodos() on startup.
+    loadTodos();
+
+    function showToast(message, isError = false) {
+      toast.innerText = message;
+      toast.className = `toast show ${isError ? 'error' : ''}`;
+      setTimeout(() => {
+        toast.className = 'toast';
+      }, 3000);
+    }
+
+    async function speakText(text) {
+      try {
+        const response = await fetch('/api/speak', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+
+        if (!response.ok) throw new Error("TTS failed");
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        ttsAudio.src = url;
+        ttsAudio.play();
+      } catch (error) {
+        console.error("Audio playback failed, falling back to local TTS", error);
+        const utterance = new SpeechSynthesisUtterance(text);
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  </script>
+</body>
+
+</html>
