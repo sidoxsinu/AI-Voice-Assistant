@@ -1,0 +1,10 @@
+{
+  "name": "AI-Voice-Assistant",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": ["project"],
+  "scripts": {
+    "install": "npm --prefix project install",
+    "start": "npm --prefix project start"
+  }
+}

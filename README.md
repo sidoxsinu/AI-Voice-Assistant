@@ -41,12 +41,21 @@ GEMINI_MODEL=gemini-1.5-flash
 ### 1. Clone/Navigate to Project
 
 ```bash
-cd project
+cd /Users/sinanm/Documents/Projects/AI-Voice-Assistant
 ```
 
-### 2. Install Dependencies
+### 2. Install Dependencies (two options)
+
+- From root (recommended, now supported by root package.json):
 
 ```bash
+npm install
+```
+
+- Or from `project` folder:
+
+```bash
+cd project
 npm install
 ```
 
@@ -55,14 +64,26 @@ npm install
 ### Option 1: Local Development (Without Docker)
 
 1. **Install dependencies** (if not already done):
-   ```bash
-   npm install
-   ```
+   - from root:
+     ```bash
+     npm install
+     ```
+   - or from project:
+     ```bash
+     cd project
+     npm install
+     ```
 
 2. **Start the server**:
-   ```bash
-   npm start
-   ```
+   - from root:
+     ```bash
+     npm start
+     ```
+   - or from project:
+     ```bash
+     cd project
+     npm start
+     ```
 
 3. **Access the application**:
    Open your browser and navigate to:
