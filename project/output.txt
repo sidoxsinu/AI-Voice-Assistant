@@ -1,0 +1,6 @@
+{
+  "action": "send_email",
+  "to": "professor",
+  "subject": "Hello",
+  "body": "Dear Professor, reaching out to say hello."
+}

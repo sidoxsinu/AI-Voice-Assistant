@@ -2,11 +2,11 @@ require('dotenv').config({ path: `${__dirname}/../.env` });
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { Ollama } = require('ollama')
+const ollama = new Ollama({ host: 'http://localhost:11434' })
 const { google } = require('googleapis');
 const nodemailer = require('nodemailer');
 const fs = require('fs');
-const gmail = require('./gmail');
 
 const TODO_FILE = path.join(__dirname, 'todo.txt');
 
@@ -22,10 +22,7 @@ app.get('/api/env', (req, res) => {
   res.json({ deepgramKey: process.env.DEEPGRAM_API_KEY });
 });
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-const geminiModel = genAI.getGenerativeModel({ 
-  model: process.env.GEMINI_MODEL || 'gemini-1.5-flash' 
-})
+const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5:14b';
 
 app.post('/api/parse-command', async (req, res) => {
   try {
@@ -43,33 +40,32 @@ The user will speak a natural language command or statement.
 Your ONLY job is to return a raw JSON object — 
 no markdown, no backticks, no explanation, nothing else.
 
-If the user explicitly asks to SEND an email, return exactly this JSON structure:
-{
-  "action": "send_email",
-  "to": "<recipient name or email>",
-  "subject": "<short inferred subject line>",
-  "body": "<full professional email body with greeting and sign-off>"
-}
+Analyze the user's voice command. Does the user explicitly ask to draft or send an email?
+If YES, output this JSON structure:
+{"action": "send_email", "to": "recipient", "subject": "subject", "body": "polite email body"}
 
-If the user says anything else (general conversation, questions, or unclear requests), return exactly this JSON structure:
-{
-  "action": "reply",
-  "text": "<Your conversational, helpful, and concise spoken reply back to the user. Keep it under 2 sentences.>"
-}
+If NO (general conversation or questions), output this JSON structure:
+{"action": "reply", "text": "Your helpful polite spoken reply."}
 
-Rules for sending emails:
-- If user says "my professor" → to: "professor"
-- Infer a natural subject from what the user said
-- Write the body as a short, polite, professional email
-- NEVER include anything outside the JSON object
+Examples:
+User: "shoot an email to my professor I'll be late"
+Output: {"action": "send_email", "to": "professor", "subject": "Late for Meeting", "body": "Dear Professor, I will be late for our meeting. Apologies."}
 
-User voice command: "${transcript}"
-`
+User: "hello how are you"
+Output: {"action": "reply", "text": "Hello! I am doing great. How can I assist you today?"}
 
-    const result = await geminiModel.generateContent(prompt)
-    const rawText = result.response.text().trim()
+User: "${transcript}"
+Output: `
 
-    // Strip markdown if Gemini adds it
+    const result = await ollama.generate({
+      model: ollamaModel,
+      prompt: prompt,
+      format: 'json',
+      stream: false
+    })
+    const rawText = result.response.trim()
+
+    // Strip markdown if the model adds it
     const cleaned = rawText
       .replace(/```json\n?/g, '')
       .replace(/```\n?/g, '')
@@ -78,7 +74,8 @@ User voice command: "${transcript}"
     // Extract JSON object safely
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
-      throw new Error('Gemini did not return valid JSON')
+      console.error('Ollama did not return valid JSON. Raw text:', cleaned)
+      return res.json({ action: 'reply', text: cleaned || "I didn't quite catch that. Could you repeat?" })
     }
 
     const parsed = JSON.parse(jsonMatch[0])
@@ -87,8 +84,8 @@ User voice command: "${transcript}"
     res.json(parsed)
 
   } catch (error) {
-    console.error('Gemini API error:', error.message)
-    res.status(500).json({ 
+    console.error('Ollama API error:', error.message)
+    res.status(500).json({
       error: 'Failed to parse voice command',
       details: error.message
     })
@@ -140,47 +137,6 @@ app.post('/api/send-email', async (req, res) => {
   }
 })
 
-// ElevenLabs TTS
-app.post('/api/speak', async (req, res) => {
-  try {
-    const { text } = req.body;
-    const VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // Rachel
-    
-    // Node.js 18+ includes Global Fetch API, use direct fetch for ElevenLabs
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'audio/mpeg',
-        'xi-api-key': process.env.ELEVENLABS_API_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        text,
-        model_id: "eleven_monolingual_v1",
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.5
-        }
-      })
-    });
-    
-    if (!response.ok) {
-        throw new Error("TTS Failed");
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    
-    res.set({
-      'Content-Type': 'audio/mpeg',
-      'Content-Length': buffer.length
-    });
-    res.send(buffer);
-  } catch (error) {
-    console.error("ElevenLabs Error:", error);
-    res.status(500).json({ error: "Failed to generate TTS" });
-  }
-});
 
 app.post('/api/summarize', async (req, res) => {
   try {
@@ -196,8 +152,12 @@ Return only the summary, nothing else:
 
 "${text}"`
 
-    const result = await geminiModel.generateContent(prompt)
-    const summary = result.response.text().trim()
+    const result = await ollama.generate({
+      model: ollamaModel,
+      prompt: prompt,
+      stream: false
+    })
+    const summary = result.response.trim()
 
     res.json({ summary })
 
@@ -217,8 +177,12 @@ nothing else, no punctuation at the end:
 
 "${transcript}"`
 
-    const result = await geminiModel.generateContent(prompt)
-    const task = result.response.text().trim()
+    const result = await ollama.generate({
+      model: ollamaModel,
+      prompt: prompt,
+      stream: false
+    })
+    const task = result.response.trim()
 
     const timestamp = new Date().toLocaleString()
     const line = `[ ] ${task}  — added ${timestamp}\n`
@@ -258,12 +222,12 @@ app.delete('/api/todos', (req, res) => {
 })
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'index.html'));
 });
 
 // Handle 404 falling back to index so static resources work
 app.use((req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'index.html'));
 });
 
 

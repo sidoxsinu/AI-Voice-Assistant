@@ -264,6 +264,7 @@
     }
   </style>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://js.puter.com/v2/"></script>
 </head>
 
 <body>
@@ -387,6 +388,7 @@
 
             if (transcriptChunk && received.is_final) {
               finalTranscript += transcriptChunk + " ";
+              currentTranscript = "";
               transcriptBox.innerHTML = finalTranscript;
 
               if (received.speech_final) {
@@ -394,7 +396,10 @@
                 stopRecordingAndParse();
               }
             } else if (transcriptChunk) {
+              currentTranscript = transcriptChunk;
               transcriptBox.innerHTML = finalTranscript + '<span style="opacity: 0.5">' + transcriptChunk + '</span>';
+            } else {
+              currentTranscript = "";
             }
           }
         } catch (e) {
@@ -442,10 +447,16 @@
     }
 
     async function stopRecordingAndParse() {
+      if (!isRecording) return;
+
       stopMicrophone();
       // Close socket to deepgram
       if (deepgramSocket && deepgramSocket.readyState === WebSocket.OPEN) {
         deepgramSocket.send(JSON.stringify({ type: 'CloseStream' }));
+      }
+
+      if (!finalTranscript.trim() && currentTranscript.trim()) {
+        finalTranscript = currentTranscript;
       }
 
       if (!finalTranscript.trim()) {
@@ -674,20 +685,14 @@
 
     async function speakText(text) {
       try {
-        const response = await fetch('/api/speak', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text })
+        const audio = await puter.ai.txt2speech(text, {
+          voice: "Joanna",
+          engine: "neural",
+          language: "en-US"
         });
-
-        if (!response.ok) throw new Error("TTS failed");
-
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        ttsAudio.src = url;
-        ttsAudio.play();
+        audio.play();
       } catch (error) {
-        console.error("Audio playback failed, falling back to local TTS", error);
+        console.error("Puter TTS failed, falling back to local TTS:", error);
         const utterance = new SpeechSynthesisUtterance(text);
         window.speechSynthesis.speak(utterance);
       }

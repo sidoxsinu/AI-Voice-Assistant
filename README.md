@@ -1,11 +1,11 @@
 # AI Voice-First Task Assistant
 
-A voice-first task assistant that leverages AI to help with email drafting, task management, and Gmail integration. The application uses Google Gemini AI to understand natural language commands and interact with Gmail.
+A voice-first task assistant that leverages AI to help with email drafting, task management, and Gmail integration. The application uses a local Ollama model (Qwen 2.5 14B) to understand natural language commands and interacts with Gmail for sending emails.
 
 ## Features
 
 - **Voice Input**: Process voice commands through Deepgram API
-- **AI-Powered Processing**: Uses Google Gemini AI for intelligent command parsing
+- **AI-Powered Processing**: Uses Ollama (Qwen 2.5 14B) for intelligent command parsing locally
 - **Gmail Integration**: Seamlessly draft and send emails
 - **Task Management**: Manage to-do items
 - **Email Composition**: Natural language email drafting
@@ -27,14 +27,13 @@ Create a `.env` file in the `project` directory with the following variables:
 
 ```
 DEEPGRAM_API_KEY=your_deepgram_api_key
-GEMINI_API_KEY=your_google_gemini_api_key
-GEMINI_MODEL=gemini-1.5-flash
+OLLAMA_MODEL=qwen2.5:14b
 ```
 
 ### How to Get API Keys
 
 1. **Deepgram API Key**: Visit [Deepgram Console](https://console.deepgram.com/) and create an API key
-2. **Google Gemini API Key**: Visit [Google AI Studio](https://makersuite.google.com/app/apikey) and generate an API key
+2. **Ollama Setup**: Ensure Ollama is running locally and you have pulled the `qwen2.5:14b` model via `ollama pull qwen2.5:14b`.
 
 ## Installation
 
@@ -141,7 +140,7 @@ The application has been verified to run successfully with the following steps:
 - The application serves the frontend HTML on port 3000
 - The backend Express server handles API requests
 - Voice commands can be sent to `/api/parse-command` endpoint
-- Deepgram and Gemini API keys are loaded from `.env` file
+- Deepgram API key and Ollama model config are loaded from `.env` file
 
 ## Project Structure
 
@@ -196,7 +195,7 @@ CMD ["node", "--inspect=0.0.0.0:9229", "backend/server.js"]
 ## Dependencies
 
 - **express** - Web server framework
-- **@google/generative-ai** - Google Gemini AI integration
+- **ollama** - Local AI model integration via Ollama
 - **googleapis** - Google APIs client library
 - **nodemailer** - Email sending functionality
 - **cors** - Cross-Origin Resource Sharing support
