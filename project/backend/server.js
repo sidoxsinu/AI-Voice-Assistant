@@ -92,23 +92,7 @@ Output: `
   }
 })
 
-// Gmail Integration
-app.get('/auth/google', (req, res) => {
-  const url = gmail.getAuthUrl();
-  res.redirect(url);
-});
-
-app.get('/auth/google/callback', async (req, res) => {
-  try {
-    const code = req.query.code;
-    await gmail.handleCallback(code);
-    res.redirect('/');
-  } catch (error) {
-    console.error("OAuth Error:", error);
-    res.status(500).send("Authentication failed");
-  }
-});
-
+// Gmail Integration via App Passwords
 app.post('/api/send-email', async (req, res) => {
   try {
     const { to, subject, body } = req.body
