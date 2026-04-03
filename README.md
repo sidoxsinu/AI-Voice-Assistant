@@ -22,18 +22,20 @@ Before running this project, ensure you have the following installed:
 > ✅ Node.js and npm have been successfully installed on this system.
 
 ## Environment Setup
-
-Create a `.env` file in the `project` directory with the following variables:
+rename the .env.example file to .env and fill in the following values as instructed in the .env.example file:
 
 ```
-DEEPGRAM_API_KEY=your_deepgram_api_key
-OLLAMA_MODEL=qwen2.5:14b
+DEEPGRAM_API_KEY=your_deepgram_api_key_here
+OLLAMA_API_KEY=your_ollama_api_key_here
+OLLAMA_MODEL=your_model_name_here
+ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+GMAIL_USER=your_email@gmail.com
+GMAIL_PASS=xxxx xxxx xxxx xxxx
 ```
 
 ### How to Get API Keys
 
-1. **Deepgram API Key**: Visit [Deepgram Console](https://console.deepgram.com/) and create an API key
-2. **Ollama Setup**: Ensure Ollama is running locally and you have pulled the `qwen2.5:14b` model via `ollama pull qwen2.5:14b`.
+Check the .env.example file for instructions
 
 ## Installation
 
