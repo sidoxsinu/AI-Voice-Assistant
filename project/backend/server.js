@@ -84,7 +84,7 @@ Output: `
     res.json(parsed)
 
   } catch (error) {
-    console.error('Ollama API error:', error.message)
+    console.error('Ollama error:', error.message)
     res.status(500).json({
       error: 'Failed to parse voice command',
       details: error.message

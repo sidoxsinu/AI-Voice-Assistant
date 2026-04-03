@@ -26,7 +26,6 @@ rename the .env.example file to .env and fill in the following values as instruc
 
 ```
 DEEPGRAM_API_KEY=your_deepgram_api_key_here
-OLLAMA_API_KEY=your_ollama_api_key_here
 OLLAMA_MODEL=your_model_name_here
 ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
 GMAIL_USER=your_email@gmail.com
