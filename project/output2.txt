@@ -1,1 +1,0 @@
-{"action":"send_email","to":"professor","subject":"Hi how are you","body":"Hello. How are you?"}

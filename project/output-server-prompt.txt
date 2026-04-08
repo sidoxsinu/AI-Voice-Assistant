@@ -1,1 +1,0 @@
-{"action": "reply", "text": "Hello! I am doing great. How can I assist you today?"}

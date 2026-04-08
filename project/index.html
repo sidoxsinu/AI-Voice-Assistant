@@ -61,9 +61,17 @@
     }
 
     @keyframes float {
-      0% { transform: translateY(0px); }
-      50% { transform: translateY(-8px); }
-      100% { transform: translateY(0px); }
+      0% {
+        transform: translateY(0px);
+      }
+
+      50% {
+        transform: translateY(-8px);
+      }
+
+      100% {
+        transform: translateY(0px);
+      }
     }
 
     /* Mic Button */
@@ -240,7 +248,7 @@
       display: none;
       margin-top: 1rem;
     }
-    
+
     /* Todo Panel */
     .todo-panel {
       position: absolute;
@@ -252,14 +260,20 @@
       padding: 1.5rem;
       animation: float 7s ease-in-out infinite;
     }
-    .todo-panel h3 { margin-top: 0; margin-bottom: 1rem; font-size: 1.1rem; }
+
+    .todo-panel h3 {
+      margin-top: 0;
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
+
     .todo-item {
       display: flex;
       gap: 10px;
       align-items: flex-start;
       margin-bottom: 10px;
       padding-bottom: 10px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       font-size: 0.9rem;
     }
   </style>
@@ -272,7 +286,9 @@
   <div class="todo-panel glass" id="todoPanel">
     <h3>To-Do List</h3>
     <div id="todoList"></div>
-    <button class="btn" id="clearTodoBtn" style="margin-top: 10px; width: 100%; border: 1px solid rgba(255,255,255,0.2); background: transparent; padding: 0.5rem; font-size: 0.85rem;">Refresh / Clear All</button>
+    <button class="btn" id="clearTodoBtn"
+      style="margin-top: 10px; width: 100%; border: 1px solid rgba(255,255,255,0.2); background: transparent; padding: 0.5rem; font-size: 0.85rem;">Refresh
+      / Clear All</button>
   </div>
 
   <div class="container">
@@ -287,15 +303,18 @@
     <div class="glass email-preview" id="emailPreview">
       <div class="preview-row">
         <div class="preview-label">To</div>
-        <div class="preview-value" id="previewTo" contenteditable="true" style="padding: 2px 4px; border-bottom: 1px dashed rgba(255,255,255,0.4); outline: none;">-</div>
+        <div class="preview-value" id="previewTo" contenteditable="true"
+          style="padding: 2px 4px; border-bottom: 1px dashed rgba(255,255,255,0.4); outline: none;">-</div>
       </div>
       <div class="preview-row">
         <div class="preview-label">Subject</div>
-        <div class="preview-value" id="previewSubject" contenteditable="true" style="padding: 2px 4px; border-bottom: 1px dashed rgba(255,255,255,0.4); outline: none;">-</div>
+        <div class="preview-value" id="previewSubject" contenteditable="true"
+          style="padding: 2px 4px; border-bottom: 1px dashed rgba(255,255,255,0.4); outline: none;">-</div>
       </div>
       <div class="preview-row">
         <div class="preview-label">Body</div>
-        <div class="preview-body" id="previewBody" contenteditable="true" style="border: 1px dashed rgba(255,255,255,0.4); outline: none;">-</div>
+        <div class="preview-body" id="previewBody" contenteditable="true"
+          style="border: 1px dashed rgba(255,255,255,0.4); outline: none;">-</div>
       </div>
 
       <div class="actions">
@@ -338,98 +357,98 @@
     const summaryBody = document.getElementById('summaryBody');
     const summaryCancelBtn = document.getElementById('summaryCancelBtn');
     const summaryCopyBtn = document.getElementById('summaryCopyBtn');
-    
+
     const todoList = document.getElementById('todoList');
     const clearTodoBtn = document.getElementById('clearTodoBtn');
 
 
     let isRecording = false;
     let mediaRecorder;
-    let deepgramSocket;
-    let currentTranscript = "";
-    let finalTranscript = "";
+    let socket;
+    let currentSocketTranscript = "";
+    let emailData = null;
+    let googleAudioCtx = null;
+    let googleProcessor = null;
+    let googleMediaStream = null;
+    let lastUserLang = 'en';
 
-    let emailData = null; // Store parsed email data
-
-    async function initDeepgram() {
-      // Fetch key from backend
-      const res = await fetch('/api/env');
-      const data = await res.json();
-      const apiKey = data.deepgramKey;
-
-      if (!apiKey) {
-        showToast("Missing Deepgram Key", true);
-        return;
+    function downsampleBuffer(buffer, inRate, outRate) {
+      if (inRate === outRate) return buffer;
+      const ratio = inRate / outRate;
+      const outLen = Math.max(1, Math.round(buffer.length / ratio));
+      const out = new Float32Array(outLen);
+      for (let i = 0; i < outLen; i++) {
+        out[i] = buffer[Math.min(Math.floor(i * ratio), buffer.length - 1)];
       }
-
-      // Initialize WebSocket
-      deepgramSocket = new WebSocket('wss://api.deepgram.com/v1/listen?model=nova-2&punctuate=true&interim_results=true&endpointing=1500', [
-        'token', apiKey
-      ]);
-
-      deepgramSocket.onopen = () => {
-        statusText.innerText = "Listening...";
-        micBtn.classList.add('recording');
-        isRecording = true;
-        currentTranscript = "";
-        finalTranscript = "";
-        transcriptBox.innerHTML = "";
-        emailPreview.style.display = 'none';
-
-        startMicrophone();
-      };
-
-      deepgramSocket.onmessage = (message) => {
-        try {
-          const received = JSON.parse(message.data);
-
-          if (received.channel && received.channel.alternatives && received.channel.alternatives[0]) {
-            const transcriptChunk = received.channel.alternatives[0].transcript;
-
-            if (transcriptChunk && received.is_final) {
-              finalTranscript += transcriptChunk + " ";
-              currentTranscript = "";
-              transcriptBox.innerHTML = finalTranscript;
-
-              if (received.speech_final) {
-                // Endpointing triggered via 1.5s silence
-                stopRecordingAndParse();
-              }
-            } else if (transcriptChunk) {
-              currentTranscript = transcriptChunk;
-              transcriptBox.innerHTML = finalTranscript + '<span style="opacity: 0.5">' + transcriptChunk + '</span>';
-            } else {
-              currentTranscript = "";
-            }
-          }
-        } catch (e) {
-          console.error("Error parsing Deepgram message:", e);
-        }
-      };
-
-      deepgramSocket.onclose = () => {
-        stopMicrophone(); // Ensure mic stops when socket closes
-      };
-
-      deepgramSocket.onerror = (error) => {
-        console.error("Deepgram WebSocket Error", error);
-        showToast("Microphone error", true);
-        resetUI();
-      };
+      return out;
     }
 
-    async function startMicrophone() {
+    function floatTo16BitPCM(float32Array) {
+      const out = new Int16Array(float32Array.length);
+      for (let i = 0; i < float32Array.length; i++) {
+        const s = Math.max(-1, Math.min(1, float32Array[i]));
+        out[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      }
+      return out;
+    }
+
+    function cleanupGoogleAudio() {
+      if (googleProcessor) {
+        try { googleProcessor.disconnect(); } catch (e) { }
+        googleProcessor = null;
+      }
+      if (googleAudioCtx) {
+        try { googleAudioCtx.close(); } catch (e) { }
+        googleAudioCtx = null;
+      }
+      if (googleMediaStream) {
+        googleMediaStream.getTracks().forEach(t => t.stop());
+        googleMediaStream = null;
+      }
+    }
+
+    async function startRecording() {
       try {
+        const cfg = await fetch('/api/stt-config').then(r => r.json());
+        if (cfg.provider === 'google') {
+          await startRecordingGoogle(cfg);
+        } else {
+          await startRecordingLocal();
+        }
+      } catch (e) {
+        console.error('stt-config failed, using local', e);
+        await startRecordingLocal();
+      }
+    }
+
+    async function startRecordingLocal() {
+      try {
+        cleanupGoogleAudio();
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        socket = new WebSocket(`${protocol}//${window.location.host}/api/listen`);
+
+        socket.onopen = () => {
+          statusText.innerText = "Listening...";
+          micBtn.classList.add('recording');
+          isRecording = true;
+          currentSocketTranscript = resetTranscriptCard();
+          emailPreview.style.display = 'none';
+          summaryCard.style.display = 'none';
+          emailData = null;
+          mediaRecorder.start(250);
+        };
+
         mediaRecorder.addEventListener('dataavailable', event => {
-          if (event.data.size > 0 && deepgramSocket.readyState == 1) {
-            deepgramSocket.send(event.data);
+          if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+            socket.send(event.data);
           }
         });
 
-        mediaRecorder.start(250);
+        socket.onmessage = (event) => onListenMessage(event, stream);
+        socket.onerror = () => onListenError(stream);
       } catch (err) {
         console.error("Microphone access denied", err);
         showToast("Please enable microphone permissions.", true);
@@ -437,144 +456,185 @@
       }
     }
 
-    function stopMicrophone() {
-      micBtn.classList.remove('recording');
-      isRecording = false;
-      if (mediaRecorder && mediaRecorder.state !== "inactive") {
-        mediaRecorder.stop();
-        mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    async function startRecordingGoogle(cfg) {
+      try {
+        const TARGET = cfg.sampleRateHertz || 16000;
+        mediaRecorder = null;
+        googleMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        googleAudioCtx = new AudioContext();
+        const inRate = googleAudioCtx.sampleRate;
+        const source = googleAudioCtx.createMediaStreamSource(googleMediaStream);
+        googleProcessor = googleAudioCtx.createScriptProcessor(2048, 1, 1);
+        const mute = googleAudioCtx.createGain();
+        mute.gain.value = 0;
+
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        socket = new WebSocket(`${protocol}//${window.location.host}/api/listen`);
+
+        socket.onopen = () => {
+          statusText.innerText = "Listening (Google)...";
+          micBtn.classList.add('recording');
+          isRecording = true;
+          currentSocketTranscript = resetTranscriptCard();
+          emailPreview.style.display = 'none';
+          summaryCard.style.display = 'none';
+          emailData = null;
+          source.connect(googleProcessor);
+          googleProcessor.connect(mute);
+          mute.connect(googleAudioCtx.destination);
+        };
+
+        googleProcessor.onaudioprocess = (e) => {
+          if (!isRecording || !socket || socket.readyState !== WebSocket.OPEN) return;
+          const input = e.inputBuffer.getChannelData(0);
+          const resampled = downsampleBuffer(input, inRate, TARGET);
+          const pcm = floatTo16BitPCM(resampled);
+          socket.send(pcm.buffer);
+        };
+
+        socket.onmessage = (event) => onListenMessage(event, null);
+        socket.onerror = () => {
+          showToast("Speech service error — check Google Cloud setup", true);
+          resetUI();
+          cleanupGoogleAudio();
+        };
+      } catch (err) {
+        console.error(err);
+        showToast("Microphone error", true);
+        resetUI();
+        cleanupGoogleAudio();
       }
     }
 
-    async function stopRecordingAndParse() {
-      if (!isRecording) return;
+    function resetTranscriptCard() {
+      transcriptBox.innerHTML = '<span class="placeholder" style="opacity:0.5">Listening...</span>';
+      return "";
+    }
 
-      stopMicrophone();
-      // Close socket to deepgram
-      if (deepgramSocket && deepgramSocket.readyState === WebSocket.OPEN) {
-        deepgramSocket.send(JSON.stringify({ type: 'CloseStream' }));
-      }
-
-      if (!finalTranscript.trim() && currentTranscript.trim()) {
-        finalTranscript = currentTranscript;
-      }
-
-      if (!finalTranscript.trim()) {
-        resetUI();
-        speakText("Sorry, I didn't catch that. Please try again.");
-        return;
-      }
-
-      const t = finalTranscript.toLowerCase();
-
-      if (t.includes('summari') || t.includes('copied')) {
-        statusText.innerText = "Tap anywhere to read clipboard...";
-        speakText("Please tap anywhere on the screen to allow me to read your clipboard.");
-        
-        const pasteHandler = async () => {
-          document.removeEventListener('click', pasteHandler);
-          try {
-            statusText.innerText = "Summarizing...";
-            const clipText = await navigator.clipboard.readText();
-            if (!clipText) { 
-              speakText("Your clipboard is empty."); 
-              resetUI(); 
-              return; 
-            }
-            const res = await fetch('/api/summarize', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: clipText })
-            });
-            const data = await res.json();
-            summaryBody.innerText = data.summary;
-            summaryCard.style.display = 'block';
-            speakText(data.summary);
-            statusText.innerText = "Done!";
-          } catch (e) {
-            console.error(e);
-            showToast("Clipboard reading blocked or API error", true);
-            speakText("I couldn't read your clipboard. Make sure you grant permissions.");
-            resetUI();
-          }
-        };
-
-        // Delay slight to prevent triggering off of any native bubbling clicks
-        setTimeout(() => {
-          document.addEventListener('click', pasteHandler);
-        }, 500);
-        
-        return;
-      }
-
-      if (t.includes('add') || t.includes('remind me')) {
-        statusText.innerText = "Extracting task...";
-        try {
-          const res = await fetch('/api/add-todo', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ transcript: finalTranscript })
-          });
-          const data = await res.json();
-          updateTodoPanel(data.allTasks);
-          speakText(`Added to your list: ${data.task}`);
-          statusText.innerText = "Added!";
-        } catch (e) {
-          console.error(e);
-          showToast("Failed to add task", true);
-          resetUI();
+    async function onListenMessage(event, stream) {
+      const data = JSON.parse(event.data);
+      if (!data.is_final) {
+        currentSocketTranscript = data.transcript;
+        if (data.transcript) {
+          transcriptBox.innerHTML = data.transcript + '<span style="opacity:0.5">...</span>';
         }
         return;
       }
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+      }
+      cleanupGoogleAudio();
+      const text = data.transcript || currentSocketTranscript;
+      const lang = data.lang || "en";
+      if (!text.trim()) {
+        resetUI();
+        speakLocalizedEnglish("Sorry, I didn't catch that.", lang);
+        return;
+      }
+      transcriptBox.innerHTML = text;
+      await parseCommand(text, lang);
+    }
 
+    function onListenError(stream) {
+      console.error("WebSocket error");
+      showToast("Microphone / speech connection error", true);
+      resetUI();
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+      }
+      cleanupGoogleAudio();
+    }
+
+    function stopRecording() {
+      if (!isRecording) return;
+      statusText.innerText = "Processing...";
+      micBtn.classList.remove('recording');
+      isRecording = false;
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'CloseStream' }));
+      }
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+      }
+      if (googleProcessor || googleAudioCtx) {
+        setTimeout(() => cleanupGoogleAudio(), 400);
+      }
+    }
+
+    async function parseCommand(finalTranscript, langCode) {
       statusText.innerText = "Thinking...";
 
       try {
         const response = await fetch('/api/parse-command', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transcript: finalTranscript.trim() })
+          body: JSON.stringify({ transcript: finalTranscript, lang: langCode })
         });
 
         if (!response.ok) throw new Error("Parse failed");
+        const data = await response.json();
+        const responseLang = data.lang || langCode;
+        lastUserLang = responseLang;
 
-        emailData = await response.json();
-
-        if (emailData.action === 'reply') {
+        if (data.action === 'reply') {
           statusText.innerText = "Responded";
-          transcriptBox.innerHTML = `<strong>Assistant:</strong> ${emailData.text}`;
-          speakText(emailData.text);
-        } else if (emailData.action === 'send_email') {
-          // Populate preview card
-          previewTo.innerText = emailData.to;
-          previewSubject.innerText = emailData.subject;
-          previewBody.innerHTML = emailData.body.replace(/\n/g, '<br>');
+          transcriptBox.innerHTML += `<br><br><strong>Assistant:</strong> ${data.text}`;
+          speakText(data.text, responseLang);
 
+        } else if (data.action === 'send_email') {
+          previewTo.innerText = data.to;
+          previewSubject.innerText = data.subject;
+          previewBody.innerHTML = data.body.replace(/\n/g, '<br>');
           statusText.innerText = "Preview ready";
           emailPreview.style.display = 'block';
-          speakText("I drafted the email. Please review and confirm to send.");
+          const vm = data.voice_message || 'Review the email and confirm to send.';
+          speakText(vm, responseLang);
+
+        } else if (data.action === 'add_todo') {
+          const res = await fetch('/api/add-todo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              transcript: finalTranscript,
+              lang: responseLang,
+              task_english: data.task || null
+            })
+          });
+          const todoData = await res.json();
+          updateTodoPanel(todoData.allTasks);
+          let intro = "Task added to your list.";
+          try {
+            const tr = await fetch('/api/translate-text', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: intro, target_lang: responseLang })
+            });
+            const j = await tr.json();
+            if (j.text) intro = j.text;
+          } catch (e) { /* keep English */ }
+          speakText(`${intro} ${todoData.task}`, responseLang);
+          statusText.innerText = "Added!";
         }
 
       } catch (error) {
-        speakText("Sorry, I couldn't understand that. Please try again.");
+        console.error(error);
+        speakLocalizedEnglish("Sorry, I couldn't understand that. Please try again.", lastUserLang);
         resetUI();
       }
     }
 
     micBtn.addEventListener('click', () => {
-      // unlock audio element on first interaction
-      ttsAudio.play().catch(() => {});
-      
+      ttsAudio.play().catch(() => { });
+
       if (!isRecording) {
-        initDeepgram();
+        startRecording();
       } else {
-        stopRecordingAndParse();
+        stopRecording();
       }
     });
 
     cancelBtn.addEventListener('click', () => {
       resetUI();
-      finalTranscript = "";
       transcriptBox.innerHTML = '<span class="placeholder">Your voice command will appear here...</span>';
     });
 
@@ -592,8 +652,7 @@
     });
 
     confirmBtn.addEventListener('click', async () => {
-      // unlock audio element on first interaction
-      ttsAudio.play().catch(() => {});
+      ttsAudio.play().catch(() => { });
 
       const payload = {
         to: previewTo.innerText.trim(),
@@ -620,7 +679,7 @@
         if (!response.ok) throw new Error("Send failed");
 
         showToast("Email sent!");
-        speakText("Done! Your email has been sent successfully.");
+        await speakLocalizedEnglish("Your email has been sent successfully.", lastUserLang);
         resetUI();
         transcriptBox.innerHTML = '<span class="placeholder">Your voice command will appear here...</span>';
 
@@ -635,11 +694,13 @@
     });
 
     function resetUI() {
-      stopMicrophone();
+      micBtn.classList.remove('recording');
+      isRecording = false;
       statusText.innerText = "Ready";
       emailPreview.style.display = 'none';
       summaryCard.style.display = 'none';
       emailData = null;
+      cleanupGoogleAudio();
     }
 
     clearTodoBtn.addEventListener('click', async () => {
@@ -653,15 +714,15 @@
         showToast("Failed to clear list", true);
       }
     });
-    
+
     async function loadTodos() {
       try {
         const res = await fetch('/api/todos');
         const data = await res.json();
         updateTodoPanel(data.tasks);
-      } catch(e) { console.error(e); }
+      } catch (e) { console.error(e); }
     }
-    
+
     function updateTodoPanel(tasks) {
       todoList.innerHTML = tasks.length === 0 ? '<p style="opacity:0.5; font-size: 0.9rem;">List is empty</p>' : '';
       tasks.forEach(t => {
@@ -672,7 +733,6 @@
       });
     }
 
-    // Call loadTodos() on startup.
     loadTodos();
 
     function showToast(message, isError = false) {
@@ -683,18 +743,26 @@
       }, 3000);
     }
 
-    async function speakText(text) {
+    function speakText(text, lang = "en") {
+      ttsAudio.src = `/api/tts?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}`;
+      ttsAudio.play().catch(e => console.error("TTS playback failed", e));
+    }
+
+    async function speakLocalizedEnglish(enText, lang) {
+      if (!lang || lang === 'en') {
+        speakText(enText, 'en');
+        return;
+      }
       try {
-        const audio = await puter.ai.txt2speech(text, {
-          voice: "Joanna",
-          engine: "neural",
-          language: "en-US"
+        const r = await fetch('/api/translate-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: enText, target_lang: lang })
         });
-        audio.play();
-      } catch (error) {
-        console.error("Puter TTS failed, falling back to local TTS:", error);
-        const utterance = new SpeechSynthesisUtterance(text);
-        window.speechSynthesis.speak(utterance);
+        const d = await r.json();
+        speakText(d.text || enText, lang);
+      } catch (e) {
+        speakText(enText, 'en');
       }
     }
   </script>

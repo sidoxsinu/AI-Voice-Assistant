@@ -2,16 +2,15 @@
   "name": "voice-first-task-assistant",
   "version": "1.0.0",
   "description": "Voice-First Task Assistant",
-  "main": "backend/server.js",
+  "main": "backend/server.py",
   "scripts": {
-    "start": "node backend/server.js"
+    "start": "bash -c 'source ../venv/bin/activate && python backend/server.py'"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "googleapis": "^140.0.0",
-    "nodemailer": "^6.9.12",
-    "ollama": "^0.6.3"
+    "nodemailer": "^6.9.12"
   }
 }

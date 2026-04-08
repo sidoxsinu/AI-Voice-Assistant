@@ -1,0 +1,12 @@
+faster-whisper
+google-cloud-speech
+edge-tts
+gtts
+langdetect
+fastapi
+uvicorn
+python-multipart
+pydantic
+google-generativeai
+groq
+python-dotenv
